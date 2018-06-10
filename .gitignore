@@ -4,3 +4,4 @@ out/
 !gradle-wrapper.jar
 .idea/
 *.log
+*.iml
