@@ -4,6 +4,7 @@ import com.sedmelluq.lava.discord.dispatch.AudioSendSystem;
 import com.sedmelluq.lava.discord.dispatch.AudioSendSystemFactory;
 import com.sedmelluq.lava.discord.dispatch.OpusFrameProvider;
 import com.sedmelluq.lava.discord.dispatch.SocketAddressInfo;
+import java.awt.TextComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,12 +47,16 @@ public class AudioPacketProvider {
 
   public AudioPacketProvider(AudioSendSystemFactory sendSystemFactory, InetSocketAddress address, byte[] secretKey,
                              int sourceIdentifier, AudioPacketBuilder.NonceStrategy nonceStrategy,
-                             Consumer<Boolean> speakingStateHandler) {
+                             Consumer<Boolean> speakingStateHandler, long explicitSocketHandle) {
 
     this.sendSystemFactory = sendSystemFactory;
     this.speakingStateHandler = speakingStateHandler;
-    addressInfo = new SocketAddressInfo(address);
+    addressInfo = new SocketAddressInfo(address, explicitSocketHandle);
     packetBuilder = new AudioPacketBuilder(secretKey, sourceIdentifier, nonceStrategy);
+  }
+
+  public void initialize() {
+    setSpeaking(true);
   }
 
   public SocketAddressInfo getAddressInfo() {

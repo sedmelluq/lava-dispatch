@@ -1,12 +1,12 @@
 plugins {
-  id 'com.jfrog.bintray' version '1.8.0'
+  id 'com.jfrog.bintray' version '1.8.4'
 }
 
 ext.moduleName = 'lava-discord-dispatch'
-version = '0.1.1'
+version = '0.2.1-linux64'
 
 dependencies {
-  compile 'com.sedmelluq:udp-queue:1.0.7'
+  compile 'com.sedmelluq:udp-queue:1.1.0-linux64'
   compile 'com.google.code.findbugs:jsr305:3.0.2'
 }
 

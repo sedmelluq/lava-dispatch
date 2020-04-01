@@ -1,8 +1,8 @@
 package com.sedmelluq.lava.discord.dispatch.queue;
 
-import com.sedmelluq.discord.lavaplayer.natives.NativeResourceHolder;
 import com.sedmelluq.discord.lavaplayer.udpqueue.natives.UdpQueueManagerLibrary;
 
+import com.sedmelluq.lava.common.natives.NativeResourceHolder;
 import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 
@@ -58,13 +58,27 @@ public class UdpQueueManager extends NativeResourceHolder {
    * @param packet Packet to add to the queue
    * @return True if adding the packet to the queue succeeded
    */
-  public boolean queuePacket(long key, String hostAddress, int port, ByteBuffer buffer) {
+  public boolean queuePacket(long key, String hostAddress, int port, ByteBuffer buffer, long explicitSocket) {
     synchronized (library) {
       if (released) {
         return false;
       }
 
-      return library.queuePacket(instance, key, hostAddress, port, buffer, buffer.limit());
+      if (explicitSocket == -1) {
+        return library.queuePacket(instance, key, hostAddress, port, buffer, buffer.limit());
+      } else {
+        return library.queuePacketWithSocket(instance, key, hostAddress, port, buffer, buffer.limit(), explicitSocket);
+      }
+    }
+  }
+
+  public boolean deleteQueue(long key) {
+    synchronized (library) {
+      if (released) {
+        return false;
+      }
+
+      return library.deleteQueue(instance, key);
     }
   }
 
@@ -74,6 +88,10 @@ public class UdpQueueManager extends NativeResourceHolder {
    */
   public void process() {
     library.process(instance);
+  }
+
+  public void processWithSocket(long ipv4Handle, long ipv6Handle) {
+    library.processWithSocket(instance, ipv4Handle, ipv6Handle);
   }
 
   @Override

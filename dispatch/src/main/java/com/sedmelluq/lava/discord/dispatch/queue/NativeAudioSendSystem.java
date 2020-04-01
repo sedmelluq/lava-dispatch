@@ -33,7 +33,7 @@ public class NativeAudioSendSystem implements AudioSendSystem {
     audioSendSystem.removeInstance(this);
   }
 
-  void populateQueue(UdpQueueManager queueManager) {
+  public void populateQueue(UdpQueueManager queueManager) {
     int remaining = queueManager.getRemainingCapacity(queueKey);
     boolean emptyQueue = queueManager.getCapacity() - remaining > 0;
 
@@ -45,12 +45,17 @@ public class NativeAudioSendSystem implements AudioSendSystem {
       if (packetProvider.providePacket(directBuffer, emptyQueue)) {
         directBuffer.flip();
 
-        if (queueManager.queuePacket(queueKey, addressInfo.hostAddress, addressInfo.port, directBuffer)) {
+        if (queueManager.queuePacket(queueKey, addressInfo.hostAddress, addressInfo.port, directBuffer,
+            addressInfo.explicitSourceSocketHandle)) {
           continue;
         }
       }
 
       break;
     }
+  }
+
+  public void deleteQueue(UdpQueueManager queueManager) {
+    queueManager.deleteQueue(queueKey);
   }
 }

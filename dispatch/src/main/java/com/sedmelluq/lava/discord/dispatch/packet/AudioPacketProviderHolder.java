@@ -7,7 +7,6 @@ import com.sedmelluq.lava.discord.dispatch.packet.AudioPacketBuilder.NonceStrate
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class AudioPacketProviderHolder {
@@ -15,17 +14,20 @@ public class AudioPacketProviderHolder {
   private final Supplier<OpusFrameProvider> frameProviderSupplier;
   private final AudioSendSystemFactory sendSystemFactory;
   private final AtomicReference<AudioPacketProvider> packetProvider;
+  private final boolean requireExplicitSocketHandle;
   private volatile ConnectionDetailsBuilder connectionDetailsBuilder;
 
   public AudioPacketProviderHolder(Consumer<Boolean> speakingStateHandler,
                                    Supplier<OpusFrameProvider> frameProviderSupplier,
-                                   AudioSendSystemFactory sendSystemFactory) {
+                                   AudioSendSystemFactory sendSystemFactory,
+                                   boolean requireExplicitSocketHandle) {
 
     this.speakingStateHandler = speakingStateHandler;
     this.frameProviderSupplier = frameProviderSupplier;
     this.sendSystemFactory = sendSystemFactory;
     this.connectionDetailsBuilder = new ConnectionDetailsBuilder();
     this.packetProvider = new AtomicReference<>();
+    this.requireExplicitSocketHandle = requireExplicitSocketHandle;
   }
 
   public void onFrameProviderChanged() {
@@ -47,6 +49,11 @@ public class AudioPacketProviderHolder {
         .withSourceIdentifier(sourceIdentifier));
   }
 
+  public void onExplicitSocketHandle(long explicitSocketHandle) {
+    connectionDetailsUpdated(connectionDetailsBuilder
+        .withExplicitSocketHandle(explicitSocketHandle));
+  }
+
   public void shutdown() {
     AudioPacketProvider provider = packetProvider.getAndSet(null);
 
@@ -58,18 +65,20 @@ public class AudioPacketProviderHolder {
   private void connectionDetailsUpdated(ConnectionDetailsBuilder newDetails) {
     connectionDetailsBuilder = newDetails;
 
-    if (newDetails.isComplete()) {
+    if (newDetails.isComplete(requireExplicitSocketHandle)) {
       AudioPacketProvider newProvider = new AudioPacketProvider(
           sendSystemFactory,
           newDetails.address,
           newDetails.secretKey,
           newDetails.sourceIdentifier,
           newDetails.nonceStrategy,
-          speakingStateHandler
+          speakingStateHandler,
+          newDetails.explicitSocketHandle
       );
 
       AudioPacketProvider oldProvider = packetProvider.getAndSet(newProvider);
       newProvider.setFrameProvider(frameProviderSupplier.get());
+      newProvider.initialize();
 
       if (oldProvider != null) {
         oldProvider.shutdown();
@@ -82,38 +91,45 @@ public class AudioPacketProviderHolder {
     private final byte[] secretKey;
     private final Integer sourceIdentifier;
     private final NonceStrategy nonceStrategy;
+    private final long explicitSocketHandle;
 
     private ConnectionDetailsBuilder() {
-      this(null, null, null, null);
+      this(null, null, null, null, -1);
     }
 
     private ConnectionDetailsBuilder(InetSocketAddress address, byte[] secretKey, Integer sourceIdentifier,
-                                     NonceStrategy nonceStrategy) {
+                                     NonceStrategy nonceStrategy, long explicitSocketHandle) {
 
       this.address = address;
       this.secretKey = secretKey;
       this.sourceIdentifier = sourceIdentifier;
       this.nonceStrategy = nonceStrategy;
+      this.explicitSocketHandle = explicitSocketHandle;
     }
 
     private ConnectionDetailsBuilder withAddress(InetSocketAddress address) {
-      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy);
+      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy, explicitSocketHandle);
     }
 
     private ConnectionDetailsBuilder withSecretKey(byte[] secretKey) {
-      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy);
+      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy, explicitSocketHandle);
     }
 
     private ConnectionDetailsBuilder withSourceIdentifier(int sourceIdentifier) {
-      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy);
+      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy, explicitSocketHandle);
     }
 
     private ConnectionDetailsBuilder withNonceStrategy(NonceStrategy nonceStrategy) {
-      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy);
+      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy, explicitSocketHandle);
     }
 
-    private boolean isComplete() {
-      return address != null && secretKey != null && sourceIdentifier != null && nonceStrategy != null;
+    private ConnectionDetailsBuilder withExplicitSocketHandle(long explicitSocketHandle) {
+      return new ConnectionDetailsBuilder(address, secretKey, sourceIdentifier, nonceStrategy, explicitSocketHandle);
+    }
+
+    private boolean isComplete(boolean requireExplicitSocketHandle) {
+      return address != null && secretKey != null && sourceIdentifier != null && nonceStrategy != null &&
+          (!requireExplicitSocketHandle || explicitSocketHandle != -1);
     }
   }
 }
